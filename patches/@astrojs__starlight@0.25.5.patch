@@ -1,0 +1,70 @@
+diff --git a/index.astro b/index.astro
+index 74ba7b1c9b74b971b507dda183d0ef613d833a8a..29c22db251b69c8af4e5ca51befb27039bdcebef 100644
+--- a/index.astro
++++ b/index.astro
+@@ -1,5 +1,6 @@
+ ---
+ import type { InferGetStaticPropsType } from 'astro';
++import { render } from 'astro:content'
+ import { generateRouteData } from './utils/route-data';
+ import { paths } from './utils/routing';
+ 
+@@ -12,7 +13,7 @@ export async function getStaticPaths() {
+ }
+ 
+ type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+-const { Content, headings } = await Astro.props.entry.render();
++const { Content, headings } = await render(Astro.props.entry);
+ const route = generateRouteData({ props: { ...Astro.props, headings }, url: Astro.url });
+ ---
+ 
+diff --git a/utils/navigation.ts b/utils/navigation.ts
+index 43369be032737e4b16e8e46d6b61caabd20607c4..ece47ca5957bf0194fb2e2b56893ef24c7f15e2c 100644
+--- a/utils/navigation.ts
++++ b/utils/navigation.ts
+@@ -100,7 +100,7 @@ function groupFromAutogenerateConfig(
+ 	const dirDocs = routes.filter(
+ 		(doc) =>
+ 			// Match against `foo.md` or `foo/index.md`.
+-			stripExtension(doc.id) === localeDir ||
++			doc.id === localeDir ||
+ 			// Match against `foo/anything/else.md`.
+ 			doc.id.startsWith(localeDir + '/')
+ 	);
+@@ -202,8 +202,7 @@ function pathsMatch(pathA: string, pathB: string) {
+ 
+ /** Get the segments leading to a page. */
+ function getBreadcrumbs(path: string, baseDir: string): string[] {
+-	// Strip extension from path.
+-	const pathWithoutExt = stripExtension(path);
++	const pathWithoutExt = path;
+ 	// Index paths will match `baseDir` and don’t include breadcrumbs.
+ 	if (pathWithoutExt === baseDir) return [];
+ 	// Ensure base directory ends in a trailing slash.
+@@ -408,9 +407,3 @@ function applyPrevNextLinkConfig(
+ 	// Otherwise, if the global config is enabled, return the generated link if any.
+ 	return paginationEnabled ? link : undefined;
+ }
+-
+-/** Remove the extension from a path. */
+-function stripExtension(path: string) {
+-	const periodIndex = path.lastIndexOf('.');
+-	return path.slice(0, periodIndex > -1 ? periodIndex : undefined);
+-}
+diff --git a/utils/routing.ts b/utils/routing.ts
+index a0b15fd3866443719c9ba8ea98ebccccce880a4b..d1d4baf900b2d47f5a8160809b72c9ea566b3ccd 100644
+--- a/utils/routing.ts
++++ b/utils/routing.ts
+@@ -51,9 +51,10 @@ const docs: StarlightDocsEntry[] = (
+ 		// In production, filter out drafts.
+ 		return import.meta.env.MODE !== 'production' || data.draft === false;
+ 	})) ?? []
+-).map(({ slug, ...entry }) => ({
++).map(({ id, ...entry }) => ({
+ 	...entry,
+-	slug: normalizeIndexSlug(slug),
++	slug: normalizeIndexSlug(id ?? 'index'),
++	id,
+ }));
+ 
+ function getRoutes(): Route[] {
